@@ -58,6 +58,19 @@ def image_url(path):
 
     return url_for("static", filename=path)
 
+def _row_at(row, idx, default=None):
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        try:
+            return list(row.values())[idx]
+        except Exception:
+            return default
+    try:
+        return row[idx]
+    except Exception:
+        return default
+
 def _parse_db_url(db_url: str) -> dict:
     parsed = urlparse(db_url)
     if parsed.scheme not in {"mysql", "mariadb"}:
@@ -137,7 +150,7 @@ def _scalar(cur, query, params=None, default=0):
         row = cur.fetchone()
         if not row:
             return default
-        value = row[0]
+        value = _row_at(row, 0, default)
         return default if value is None else value
     except Exception:
         return default
@@ -230,7 +243,7 @@ def users_has_is_admin():
                 """
             )
             row = cur.fetchone()
-            has_col = bool(row and row[0] > 0)
+            has_col = bool(row and _row_at(row, 0, 0) > 0)
             app.config["USERS_HAS_IS_ADMIN"] = has_col
             return has_col
     except Exception:
@@ -258,7 +271,7 @@ def orders_has_reference():
                 """
             )
             row = cur.fetchone()
-            has_col = bool(row and row[0] > 0)
+            has_col = bool(row and _row_at(row, 0, 0) > 0)
             app.config["ORDERS_HAS_REFERENCE"] = has_col
             return has_col
     except Exception:
@@ -293,12 +306,12 @@ def seed_sample_reviews(cur):
     try:
         cur.execute("SELECT COUNT(*) FROM product_reviews")
         row = cur.fetchone()
-        if row and row[0] > 0:
+        if row and _row_at(row, 0, 0) > 0:
             return False
 
         cur.execute("SELECT product_id FROM products ORDER BY product_id DESC LIMIT 4")
         product_rows = cur.fetchall() or []
-        product_ids = [r[0] for r in product_rows]
+        product_ids = [_row_at(r, 0) for r in product_rows]
         if not product_ids:
             return False
 
@@ -368,10 +381,10 @@ def get_product_reviews(conn, product_id):
                 (product_id,),
             )
             row = cur.fetchone()
-            avg_real = float(row[0] or 0)
-            count_real = int(row[1] or 0)
-            avg_all = float(row[2] or 0)
-            count_all = int(row[3] or 0)
+            avg_real = float(_row_at(row, 0, 0) or 0)
+            count_real = int(_row_at(row, 1, 0) or 0)
+            avg_all = float(_row_at(row, 2, 0) or 0)
+            count_all = int(_row_at(row, 3, 0) or 0)
             if count_real > 0:
                 avg_rating = avg_real
                 review_count = count_real
@@ -415,11 +428,11 @@ def get_ratings_for_products(conn, product_ids):
             rows = cur.fetchall() or []
             rating_map = {}
             for row in rows:
-                pid = int(row[0])
-                avg_real = float(row[1] or 0)
-                count_real = int(row[2] or 0)
-                avg_all = float(row[3] or 0)
-                count_all = int(row[4] or 0)
+                pid = int(_row_at(row, 0, 0))
+                avg_real = float(_row_at(row, 1, 0) or 0)
+                count_real = int(_row_at(row, 2, 0) or 0)
+                avg_all = float(_row_at(row, 3, 0) or 0)
+                count_all = int(_row_at(row, 4, 0) or 0)
                 if count_real > 0:
                     rating_map[pid] = {
                         "avg": round(avg_real, 1),
@@ -460,7 +473,7 @@ def ensure_flash_sale_tables(cur):
         )
         cur.execute("SELECT COUNT(*) FROM flash_sale_settings WHERE id = 1")
         row = cur.fetchone()
-        if not row or row[0] == 0:
+        if not row or _row_at(row, 0, 0) == 0:
             cur.execute(
                 """
                 INSERT INTO flash_sale_settings (id, is_active, duration_seconds, ends_at)
@@ -502,9 +515,9 @@ def get_flash_sale_state(conn):
                 "SELECT is_active, duration_seconds, ends_at FROM flash_sale_settings WHERE id = 1"
             )
             row = cur.fetchone()
-            is_active = bool(row[0]) if row else False
-            duration_seconds = int(row[1] or 0) if row else 0
-            ends_at = row[2] if row else None
+            is_active = bool(_row_at(row, 0, 0)) if row else False
+            duration_seconds = int(_row_at(row, 1, 0) or 0) if row else 0
+            ends_at = _row_at(row, 2, None) if row else None
 
             now = datetime.now()
             if is_active and duration_seconds <= 0:
@@ -616,7 +629,7 @@ def home():
 
     rating_ids = []
     for group in (watches, ladies, jersey, foam, new_products, flash_sales):
-        rating_ids.extend([row[0] for row in group] if group else [])
+        rating_ids.extend([_row_at(row, 0) for row in group] if group else [])
     ratings = get_ratings_for_products(connection, rating_ids)
 
     connection.close()
@@ -844,7 +857,7 @@ def search():
     results = advanced_product_search(q)
     conn = get_db_connection()
     try:
-        ratings = get_ratings_for_products(conn, [row[0] for row in results])
+        ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in results])
     finally:
         conn.close()
     return render_template("home.html", results=results, q=q, ratings=ratings)
@@ -880,14 +893,14 @@ def search_suggestions():
     for row in rows:
         suggestions.append(
             {
-                "id": row[0],
-                "name": row[1],
-                "category": row[2],
-                "brand": row[3],
-                "price": row[4],
-                "stock": row[5],
-                "description": row[6],
-                "image_url": image_url(row[7]),
+                "id": _row_at(row, 0),
+                "name": _row_at(row, 1),
+                "category": _row_at(row, 2),
+                "brand": _row_at(row, 3),
+                "price": _row_at(row, 4),
+                "stock": _row_at(row, 5),
+                "description": _row_at(row, 6),
+                "image_url": image_url(_row_at(row, 7)),
             }
         )
     return jsonify(suggestions)
@@ -1070,7 +1083,7 @@ def category_men_watch():
     products = get_products_by_category("Men Watch")
     conn = get_db_connection()
     try:
-        ratings = get_ratings_for_products(conn, [row[0] for row in products])
+        ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in products])
     finally:
         conn.close()
     return render_template("category_men_watch.html", products=products, ratings=ratings)
@@ -1081,7 +1094,7 @@ def category_ladies_watch():
     products = get_products_by_category("Ladies Watch")
     conn = get_db_connection()
     try:
-        ratings = get_ratings_for_products(conn, [row[0] for row in products])
+        ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in products])
     finally:
         conn.close()
     return render_template("category_ladies_watch.html", products=products, ratings=ratings)
@@ -1092,7 +1105,7 @@ def category_jersey():
     products = get_products_by_category("Jersey")
     conn = get_db_connection()
     try:
-        ratings = get_ratings_for_products(conn, [row[0] for row in products])
+        ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in products])
     finally:
         conn.close()
     return render_template("category_jersey.html", products=products, ratings=ratings)
@@ -1103,7 +1116,7 @@ def category_cleaning():
     products = get_products_by_category("Cleaning")
     conn = get_db_connection()
     try:
-        ratings = get_ratings_for_products(conn, [row[0] for row in products])
+        ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in products])
     finally:
         conn.close()
     return render_template("category_cleaning.html", products=products, ratings=ratings)
@@ -1115,7 +1128,7 @@ def flash_sales_page():
     try:
         flash_state = get_flash_sale_state(conn)
         ratings = get_ratings_for_products(
-            conn, [row[0] for row in flash_state["items"]]
+            conn, [_row_at(row, 0) for row in flash_state["items"]]
         )
     finally:
         conn.close()
@@ -1721,9 +1734,9 @@ def admin_dashboard():
                     "SELECT is_active, duration_seconds, ends_at FROM flash_sale_settings WHERE id = 1"
                 )
                 row = cur.fetchone()
-                flash_sale_active = bool(row[0]) if row else False
-                flash_sale_duration_seconds = int(row[1] or 0) if row else 0
-                ends_at = row[2] if row else None
+                flash_sale_active = bool(_row_at(row, 0, 0)) if row else False
+                flash_sale_duration_seconds = int(_row_at(row, 1, 0) or 0) if row else 0
+                ends_at = _row_at(row, 2, None) if row else None
 
                 now = datetime.now()
                 if flash_sale_active and flash_sale_duration_seconds <= 0:
@@ -1756,7 +1769,7 @@ def admin_dashboard():
                 cur.execute(
                     "SELECT product_id FROM flash_sale_items WHERE is_active = 1"
                 )
-                flash_selected_ids = [int(row[0]) for row in cur.fetchall() or []]
+                flash_selected_ids = [int(_row_at(row, 0, 0)) for row in cur.fetchall() or []]
 
                 cur.execute(
                     """
@@ -1778,11 +1791,11 @@ def admin_dashboard():
         if conn:
             conn.close()
 
-    status_labels = [row[0] for row in status_rows]
-    status_values = [int(row[1]) for row in status_rows]
+    status_labels = [_row_at(row, 0) for row in status_rows]
+    status_values = [int(_row_at(row, 1, 0)) for row in status_rows]
 
-    category_labels = [row[0] for row in category_rows]
-    category_values = [int(row[1]) for row in category_rows]
+    category_labels = [_row_at(row, 0) for row in category_rows]
+    category_values = [int(_row_at(row, 1, 0)) for row in category_rows]
 
     completion_rate = 0.0
     if metrics["orders"]:
@@ -1890,9 +1903,9 @@ def admin_flash_sale():
                     "SELECT is_active, duration_seconds, ends_at FROM flash_sale_settings WHERE id = 1"
                 )
                 row = cur.fetchone()
-                flash_sale_active = bool(row[0]) if row else False
-                flash_sale_duration_seconds = int(row[1] or 0) if row else 0
-                ends_at = row[2] if row else None
+                flash_sale_active = bool(_row_at(row, 0, 0)) if row else False
+                flash_sale_duration_seconds = int(_row_at(row, 1, 0) or 0) if row else 0
+                ends_at = _row_at(row, 2, None) if row else None
 
                 now = datetime.now()
                 if flash_sale_active and flash_sale_duration_seconds <= 0:
@@ -1925,7 +1938,7 @@ def admin_flash_sale():
                 cur.execute(
                     "SELECT product_id FROM flash_sale_items WHERE is_active = 1"
                 )
-                flash_selected_ids = [int(row[0]) for row in cur.fetchall() or []]
+                flash_selected_ids = [int(_row_at(row, 0, 0)) for row in cur.fetchall() or []]
 
                 cur.execute(
                     """
