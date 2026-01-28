@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results</title>
+    <link href="../static/files/css/bootstrap.min.css" rel="stylesheet">
+    <script src="../static/files/js/bootstrap.bundle.min.js"></script>
+    <style>
+      .search-shell { background: #f8fafc; }
+      .search-head {
+        background: #fff;
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+      }
+      .search-breadcrumb {
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .search-breadcrumb a { color: #0f172a; text-decoration: none; font-weight: 600; }
+      .search-breadcrumb span { color: #9ca3af; padding: 0 6px; }
+      .filter-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+      }
+      .filter-title {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 12px;
+        color: #111827;
+        margin-bottom: 12px;
+      }
+      .filter-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+      .filter-list li + li { margin-top: 8px; }
+      .filter-link {
+        display: flex;
+        justify-content: space-between;
+        text-decoration: none;
+        color: #1f2937;
+        font-weight: 600;
+        padding: 6px 8px;
+        border-radius: 10px;
+      }
+      .filter-link:hover,
+      .filter-link.active {
+        background: #fff7ed;
+        color: #c2410c;
+      }
+      .filter-count {
+        color: #9ca3af;
+        font-size: 12px;
+      }
+      .price-range {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .price-range input[type="number"] {
+        max-width: 120px;
+      }
+      .price-sliders input[type="range"] {
+        width: 100%;
+      }
+      .sort-select {
+        border-radius: 999px;
+        padding: 6px 12px;
+        border: 1px solid #e5e7eb;
+        background: #f8fafc;
+        font-weight: 600;
+      }
+      .result-card {
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+        background: #fff;
+      }
+      .result-card img { height: 190px; object-fit: cover; }
+      .result-card .card-body { min-height: 160px; }
+      .result-meta { font-size: 12px; color: #6b7280; }
+    </style>
+</head>
+<body class="search-shell">
+    <div class="container-fluid">
+        {% include 'navbar.html' %}
+    </div>
+
+    <div class="container-fluid px-4 py-4">
+      <div class="search-head mb-4">
+        <div class="search-breadcrumb">
+          <a href="/">Home</a> <span>&gt;</span> <a href="/categories">All Products</a>
+          <span>&gt;</span> "{{ q }}"
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-2">
+          <h4 class="mb-0">Results for "{{ q }}"</h4>
+          <div class="text-muted small">{{ total_results }} products found</div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div class="filter-card mb-3">
+            <div class="filter-title">Category</div>
+            <ul class="filter-list">
+              {% if categories and categories|length > 0 %}
+                {% for cat in categories %}
+                  <li>
+                    <a class="filter-link {% if category_filter == cat.name %}active{% endif %}"
+                       href="{{ url_for('search', q=q, category=cat.name, brand=brand_filter, min_price=min_price, max_price=max_price, sort=sort) }}">
+                      <span>{{ cat.name }}</span>
+                      <span class="filter-count">{{ cat.count }}</span>
+                    </a>
+                  </li>
+                {% endfor %}
+              {% else %}
+                <li class="text-muted small">No categories found.</li>
+              {% endif %}
+            </ul>
+          </div>
+
+          <div class="filter-card mb-3">
+            <div class="filter-title">Price (KES)</div>
+            <form method="GET" action="/search">
+              <input type="hidden" name="q" value="{{ q }}">
+              {% if category_filter %}
+              <input type="hidden" name="category" value="{{ category_filter }}">
+              {% endif %}
+              {% if brand_filter %}
+              <input type="hidden" name="brand" value="{{ brand_filter }}">
+              {% endif %}
+              <input type="hidden" name="sort" value="{{ sort }}">
+              <div class="price-range mb-2">
+                <input class="form-control" type="number" name="min_price" id="minPriceInput" value="{{ min_price }}" min="{{ base_min }}" max="{{ base_max }}">
+                <span>-</span>
+                <input class="form-control" type="number" name="max_price" id="maxPriceInput" value="{{ max_price }}" min="{{ base_min }}" max="{{ base_max }}">
+              </div>
+              <div class="price-sliders mb-3">
+                <input type="range" id="minPriceRange" min="{{ base_min }}" max="{{ base_max }}" value="{{ min_price }}">
+                <input type="range" id="maxPriceRange" min="{{ base_min }}" max="{{ base_max }}" value="{{ max_price }}">
+              </div>
+              <button class="btn btn-sm btn-outline-dark w-100" type="submit">Apply</button>
+            </form>
+          </div>
+
+          <div class="filter-card">
+            <div class="filter-title">Brand</div>
+            <ul class="filter-list">
+              {% if brands and brands|length > 0 %}
+                {% for brand in brands %}
+                  <li>
+                    <a class="filter-link {% if brand_filter == brand.name %}active{% endif %}"
+                       href="{{ url_for('search', q=q, category=category_filter, brand=brand.name, min_price=min_price, max_price=max_price, sort=sort) }}">
+                      <span>{{ brand.name }}</span>
+                      <span class="filter-count">{{ brand.count }}</span>
+                    </a>
+                  </li>
+                {% endfor %}
+              {% else %}
+                <li class="text-muted small">No brands found.</li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+
+        <div class="col-lg-9">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div class="result-meta">
+              {% if category_filter %}Category: <strong>{{ category_filter }}</strong>{% endif %}
+              {% if brand_filter %}{% if category_filter %} &middot; {% endif %}Brand: <strong>{{ brand_filter }}</strong>{% endif %}
+            </div>
+            <form method="GET" action="/search" class="d-flex align-items-center gap-2">
+              <input type="hidden" name="q" value="{{ q }}">
+              {% if category_filter %}
+              <input type="hidden" name="category" value="{{ category_filter }}">
+              {% endif %}
+              {% if brand_filter %}
+              <input type="hidden" name="brand" value="{{ brand_filter }}">
+              {% endif %}
+              <input type="hidden" name="min_price" value="{{ min_price }}">
+              <input type="hidden" name="max_price" value="{{ max_price }}">
+              <label class="text-muted small">Sort by</label>
+              <select class="sort-select" name="sort" onchange="this.form.submit()">
+                <option value="popularity" {% if sort == 'popularity' %}selected{% endif %}>Popularity</option>
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+                <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+                <option value="rating" {% if sort == 'rating' %}selected{% endif %}>Product Rating</option>
+              </select>
+            </form>
+          </div>
+
+          {% if results and results|length > 0 %}
+          <div class="row g-3">
+            {% for item in results %}
+            <div class="col-sm-6 col-lg-4">
+              <div class="card result-card h-100">
+                <img src="{{ image_url(item[7]) }}" class="card-img-top" alt="">
+                <div class="card-body d-flex flex-column">
+                  <h6 class="card-title">{{ item[1] }}</h6>
+                  <p class="text-danger mb-1">KES {{ item[4] }}</p>
+                  {% set rating = ratings.get(item[0]) if ratings is defined else None %}
+                  {% if rating and rating.count > 0 %}
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="text-warning">
+                      {% for i in range(1, 6) %}
+                        {% if i <= (rating.avg|round(0, 'common')|int) %}&#9733;{% else %}&#9734;{% endif %}
+                      {% endfor %}
+                    </span>
+                    <span class="text-muted small">{{ rating.avg }}/5</span>
+                    <span class="text-muted small">({{ rating.count }})</span>
+                  </div>
+                  {% else %}
+                  <div class="text-muted small mb-2">No reviews yet.</div>
+                  {% endif %}
+                  {% if item[5] is not none and item[5]|int <= 5 %}
+                  <div class="text-danger small mb-2">Low stock: {{ item[5] }} left</div>
+                  {% endif %}
+                  <div class="d-flex gap-2 mt-auto">
+                    <a href="/single_item/{{ item[0] }}" class="btn btn-sm btn-outline-primary">View</a>
+                    <form method="POST" action="/add_to_cart/{{ item[0] }}">
+                      <input type="hidden" name="qty" value="1">
+                      <button class="btn btn-sm btn-success" type="submit">Add to Cart</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+            <div class="alert alert-light border">No products found for "{{ q }}".</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const minInput = document.getElementById("minPriceInput");
+        const maxInput = document.getElementById("maxPriceInput");
+        const minRange = document.getElementById("minPriceRange");
+        const maxRange = document.getElementById("maxPriceRange");
+        if (!minInput || !maxInput || !minRange || !maxRange) return;
+
+        const clampRanges = () => {
+          let minVal = parseFloat(minRange.value);
+          let maxVal = parseFloat(maxRange.value);
+          if (minVal > maxVal) {
+            const tmp = minVal;
+            minVal = maxVal;
+            maxVal = tmp;
+          }
+          minRange.value = minVal;
+          maxRange.value = maxVal;
+          minInput.value = Math.round(minVal);
+          maxInput.value = Math.round(maxVal);
+        };
+
+        minRange.addEventListener("input", clampRanges);
+        maxRange.addEventListener("input", clampRanges);
+        minInput.addEventListener("change", () => {
+          minRange.value = minInput.value || minRange.min;
+          clampRanges();
+        });
+        maxInput.addEventListener("change", () => {
+          maxRange.value = maxInput.value || maxRange.max;
+          clampRanges();
+        });
+      })();
+    </script>
+</body>
+</html>

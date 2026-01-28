@@ -912,15 +912,115 @@ def logout():
 def search():
     q = request.args.get("q", "").strip()
     if not q:
-        return render_template("home.html", results=[], q="")
+        return render_template("search_results.html", results=[], q="")
+
+    category_filter = request.args.get("category", "").strip()
+    brand_filter = request.args.get("brand", "").strip()
+    sort = request.args.get("sort", "popularity").strip()
+    min_price_raw = request.args.get("min_price", "").strip()
+    max_price_raw = request.args.get("max_price", "").strip()
 
     results = advanced_product_search(q)
+
+    prices = []
+    category_counts = {}
+    brand_counts = {}
+    for row in results:
+        price_val = _row_at(row, 4, None)
+        if price_val is not None:
+            try:
+                prices.append(float(price_val))
+            except (TypeError, ValueError):
+                pass
+        category = str(_row_at(row, 2, "") or "").strip()
+        brand = str(_row_at(row, 3, "") or "").strip()
+        if category:
+            category_counts[category] = category_counts.get(category, 0) + 1
+        if brand:
+            brand_counts[brand] = brand_counts.get(brand, 0) + 1
+
+    base_min = int(min(prices)) if prices else 0
+    base_max = int(max(prices)) if prices else 0
+
+    try:
+        min_price = float(min_price_raw) if min_price_raw else None
+    except ValueError:
+        min_price = None
+    try:
+        max_price = float(max_price_raw) if max_price_raw else None
+    except ValueError:
+        max_price = None
+
     conn = get_db_connection()
     try:
         ratings = get_ratings_for_products(conn, [_row_at(row, 0) for row in results])
     finally:
         conn.close()
-    return render_template("home.html", results=results, q=q, ratings=ratings)
+
+    filtered = []
+    for row in results:
+        if category_filter:
+            category = str(_row_at(row, 2, "") or "").strip()
+            if category != category_filter:
+                continue
+        if brand_filter:
+            brand = str(_row_at(row, 3, "") or "").strip()
+            if brand != brand_filter:
+                continue
+        price_val = _row_at(row, 4, None)
+        try:
+            price_val = float(price_val)
+        except (TypeError, ValueError):
+            price_val = None
+        if min_price is not None and price_val is not None and price_val < min_price:
+            continue
+        if max_price is not None and price_val is not None and price_val > max_price:
+            continue
+        filtered.append(row)
+
+    def _price_value(row):
+        try:
+            return float(_row_at(row, 4, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    if sort == "newest":
+        filtered.sort(key=lambda r: _row_at(r, 0, 0), reverse=True)
+    elif sort == "price_asc":
+        filtered.sort(key=_price_value)
+    elif sort == "price_desc":
+        filtered.sort(key=_price_value, reverse=True)
+    elif sort == "rating":
+        filtered.sort(
+            key=lambda r: ratings.get(_row_at(r, 0), {}).get("avg", 0),
+            reverse=True,
+        )
+
+    categories = sorted(
+        [{"name": k, "count": v} for k, v in category_counts.items()],
+        key=lambda item: item["name"].lower(),
+    )
+    brands = sorted(
+        [{"name": k, "count": v} for k, v in brand_counts.items()],
+        key=lambda item: item["name"].lower(),
+    )
+
+    return render_template(
+        "search_results.html",
+        results=filtered,
+        q=q,
+        ratings=ratings,
+        category_filter=category_filter,
+        brand_filter=brand_filter,
+        sort=sort,
+        min_price=min_price if min_price is not None else base_min,
+        max_price=max_price if max_price is not None else base_max,
+        base_min=base_min,
+        base_max=base_max,
+        categories=categories,
+        brands=brands,
+        total_results=len(filtered),
+    )
 
 
 @app.route("/search_suggestions")
