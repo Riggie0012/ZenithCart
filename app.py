@@ -940,6 +940,13 @@ def search():
             brand_filter = brand_match
         elif category_match:
             category_filter = category_match
+        else:
+            partial_brands = [b for b in brand_counts.keys() if lowered in b.lower()]
+            if len(partial_brands) == 1:
+                brand_filter = partial_brands[0]
+            elif partial_brands:
+                # pick the brand with the most hits if multiple partial matches
+                brand_filter = max(partial_brands, key=lambda b: brand_counts.get(b, 0))
 
     try:
         min_price = float(min_price_raw) if min_price_raw else None
