@@ -397,6 +397,15 @@
         font-size: 28px;
         box-shadow: 0 12px 24px rgba(255, 122, 0, 0.35);
       }
+      .signin-modal .signin-logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        background: #fff;
+        padding: 4px;
+      }
       .signin-modal .signin-hero h6 {
         font-weight: 700;
         margin-bottom: 4px;
@@ -581,7 +590,9 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="signin-hero">
-          <div class="signin-hero-icon"><i class="fa-solid fa-user-lock"></i></div>
+        <div class="signin-hero-icon">
+          <img src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="ZenithCart" class="signin-logo">
+        </div>
           <div>
             <h6>Sign in for a faster checkout</h6>
             <p>Save your cart, track orders, and leave verified reviews.</p>
