@@ -71,6 +71,40 @@ def _row_at(row, idx, default=None):
     except Exception:
         return default
 
+
+def _is_safe_url(target):
+    if not target:
+        return False
+    try:
+        ref = urlparse(request.host_url)
+        test = urlparse(target)
+        return (
+            test.scheme in ("http", "https", "")
+            and ref.netloc == test.netloc
+        )
+    except Exception:
+        return False
+
+
+def _remember_next_url():
+    referrer = request.referrer or ""
+    if not _is_safe_url(referrer):
+        return
+    path = urlparse(referrer).path or ""
+    if path in ("/signin", "/signup"):
+        return
+    session["next_url"] = referrer
+
+
+def _pop_next_url():
+    next_url = session.pop("next_url", None)
+    if not _is_safe_url(next_url):
+        return None
+    path = urlparse(next_url).path or ""
+    if path in ("/signin", "/signup"):
+        return None
+    return next_url
+
 def _parse_db_url(db_url: str) -> dict:
     parsed = urlparse(db_url)
     if parsed.scheme not in {"mysql", "mariadb"}:
@@ -775,9 +809,13 @@ def signup():
                 mailer.send_email(email, subject, text_body, html_body)
         except Exception:
             pass
-        return render_template('signin.html', success='Registered Successfully, You can Signin Now')
+        next_url = _pop_next_url()
+        if next_url:
+            return redirect(next_url)
+        return redirect(url_for("signin", signup="success"))
         
     else:
+        _remember_next_url()
         return render_template('signup.html')
     
 #Signin route
@@ -837,11 +875,13 @@ def signin():
 
             send_login_notifications(user_name, user_email, user_phone)
 
-            next_url = session.pop("next_url", None)
+            next_url = _pop_next_url()
             return redirect(next_url or url_for("home"))
 
     else:
-        return render_template('signin.html')    
+        _remember_next_url()
+        success = "Registered Successfully, You can Signin Now" if request.args.get("signup") == "success" else ""
+        return render_template('signin.html', success=success)    
 
 
 #logout route
