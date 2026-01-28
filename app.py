@@ -59,10 +59,10 @@ def image_url(path):
     return url_for("static", filename=path)
 
 def get_db_connection():
-    host = os.getenv("DB_HOST", "localhost")
-    user = os.getenv("DB_USER", "root")
-    password = os.getenv("DB_PASSWORD", "")
-    database = os.getenv("DB_NAME", "zenithcartdb")
+    host = os.getenv("DB_HOST")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    database = os.getenv("DB_NAME")
     port = int(os.getenv("DB_PORT", "3306"))
     return pymysql.connect(
         host=host,
@@ -70,6 +70,11 @@ def get_db_connection():
         password=password,
         database=database,
         port=port,
+        ssl={"ssl": {}},           # <-- IMPORTANT for Railway proxy
+        connect_timeout=10,
+        read_timeout=10,
+        write_timeout=10,
+        cursorclass=pymysql.cursors.DictCursor,
     )
 
 
