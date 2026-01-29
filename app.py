@@ -106,6 +106,15 @@ def _pop_next_url():
         return None
     return next_url
 
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(
+        app.static_folder,
+        "favicon.ico",
+        mimetype="image/x-icon",
+    )
+
 def _parse_db_url(db_url: str) -> dict:
     parsed = urlparse(db_url)
     if parsed.scheme not in {"mysql", "mariadb"}:
