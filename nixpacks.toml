@@ -1,0 +1,12 @@
+[phases.setup]
+# Use runtime.txt for version pin, but keep explicit packages
+nixPkgs = ["python311", "gcc", "pkg-config"]
+
+[phases.install]
+cmds = ["python -m venv /opt/venv", "/opt/venv/bin/pip install -r requirements.txt"]
+
+[phases.build]
+cmds = ["python -c \"import sys; print('Build ok', sys.version)\""]
+
+[start]
+cmd = "gunicorn wsgi:app --bind 0.0.0.0:$PORT"

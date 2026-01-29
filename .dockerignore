@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+.git/
+.gitignore
+tests/
+README.md
+runtime.txt
+railway.json
+nixpacks.toml
